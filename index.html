@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Reconhecimento Facial - Documentos de Segurança</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; background: #f0f2f5; padding: 20px; }
+    
+    /* Layout da Câmera e Sinalizador */
+    .camera-wrapper { display: flex; justify-content: center; align-items: center; gap: 20px; margin: 20px auto; }
+    #webcam-container { width: 220px; height: 220px; border: 4px solid #333; border-radius: 10px; overflow: hidden; background: #000; }
+    
+    /* Container do Sinalizador LED e Legenda */
+    .indicator-box { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 140px; }
+    .indicator { width: 30px; height: 30px; border-radius: 50%; background-color: #ccc; transition: background-color 0.3s, box-shadow 0.3s; }
+    
+    /* Cores dos LEDs */
+    .indicator.yellow { background-color: #ffc107; box-shadow: 0 0 12px #ffc107; }
+    .indicator.green { background-color: #28a745; box-shadow: 0 0 12px #28a745; }
+    .indicator.red { background-color: #dc3545; box-shadow: 0 0 12px #dc3545; }
+    
+    #led-label { font-size: 0.85em; font-weight: bold; color: #555; text-align: center; }
+
+    #status { font-size: 1.2em; font-weight: bold; color: #333; margin-top: 15px; min-height: 60px; }
+    
+    /* Botões */
+    .btn-group { margin-top: 15px; display: flex; justify-content: center; gap: 15px; }
+    .btn { padding: 10px 20px; font-size: 1em; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; transition: opacity 0.2s; }
+    .btn:hover { opacity: 0.9; }
+    .btn-confirm { background-color: #28a745; color: white; } /* Botão Confirmar em Verde */
+    .btn-repeat { background-color: #6c757d; color: white; }  /* Botão Repetir em Cinza */
+  </style>
+</head>
+<body>
+
+  <h1>Acesso a Documentos de Segurança (NRs)</h1>
+  <p>Aproxime o rosto da câmera para validar seu acesso.</p>
+  
+  <div class="camera-wrapper">
+    <div id="webcam-container"></div>
+    <div class="indicator-box">
+      <div id="led-indicator" class="indicator yellow"></div>
+      <div id="led-label">Realizando leitura</div>
+    </div>
+  </div>
+
+  <div id="status">Inicializando câmera...</div>
+
+  <script type="text/javascript">
+    // CONFIGURAÇÕES DO MODELO E LINKS
+    const URL_MODELO = "https://daharyn.github.io/Reconhecimento_Facial/";
+
+    const linksOneDrive = {
+      "Diego_Felipe": "https://grupoccr.sharepoint.com/:f:/s/InterfaceTramoIII2/IgDUoEZtZyKtRIZDu2vtehGyAbBS1jjc7QCZQ_QsBltCQ8g?e=MFZFaN",
+      "Jorge_Alan": "https://grupoccr.sharepoint.com/:f:/s/InterfaceTramoIII2/IgClHMOoNrXlT5U8UVqut-eQAfzGB8J21O_Pp2APIl_qCJs?e=sSeA4h"
+    };
+
+    const CONFIRMACAO_MINIMA = 0.90;   // 90% de certeza
+    const TEMPO_CONFIRMACAO_MS = 2000; // 2 segundos mantendo a posição
+
+    let model, webcam, emPausa = false;
+    let colaboradorDetectado = null;
+    let tempoInicioLeitura = null;
+    let colaboradorPendente = null;
+
+    async function init() {
+      const modelURL = URL_MODELO + "model.json";
+      const metadataURL = URL_MODELO + "metadata.json";
+
+      model = await tmImage.load(modelURL, metadataURL);
+
+      webcam = new tmImage.Webcam(220, 220, true); 
+      await webcam.setup(); 
+      await webcam.play();
+      window.requestAnimationFrame(loop);
+
+      document.getElementById("webcam-container").appendChild(webcam.canvas);
+      atualizarSinalizador("yellow", "Realizando leitura");
+      document.getElementById("status").innerText = "Aguardando reconhecimento...";
+    }
+
+    async function loop() {
+      webcam.update();
+      if (!emPausa) {
+        await predict();
+      }
+      window.requestAnimationFrame(loop);
+    }
+
+    function atualizarSinalizador(cor, legenda) {
+      const led = document.getElementById("led-indicator");
+      const label = document.getElementById("led-label");
+      led.className = "indicator " + cor;
+      label.innerText = legenda;
+    }
+
+    async function predict() {
+      const prediction = await model.predict(webcam.canvas);
+      
+      let maiorProbabilidade = 0;
+      let classeMaisProvavel = "";
+
+      for (let i = 0; i < prediction.length; i++) {
+        if (prediction[i].probability > maiorProbabilidade) {
+          maiorProbabilidade = prediction[i].probability;
+          classeMaisProvavel = prediction[i].className;
+        }
+      }
+
+      // Se atingiu taxa de certeza >= 90%
+      if (maiorProbabilidade >= CONFIRMACAO_MINIMA) {
+        
+        // Colaborador cadastrado no sistema
+        if (linksOneDrive[classeMaisProvavel]) {
+          const agora = Date.now();
+
+          if (colaboradorDetectado !== classeMaisProvavel) {
+            colaboradorDetectado = classeMaisProvavel;
+            tempoInicioLeitura = agora;
+          }
+
+          const tempoDecorrido = agora - tempoInicioLeitura;
+          const tempoRestante = ((TEMPO_CONFIRMACAO_MS - tempoDecorrido) / 1000).toFixed(1);
+
+          if (tempoDecorrido >= TEMPO_CONFIRMACAO_MS) {
+            // Trava o loop e exibe a tela de confirmação
+            emPausa = true;
+            colaboradorPendente = classeMaisProvavel;
+            colaboradorDetectado = null;
+            tempoInicioLeitura = null;
+
+            atualizarSinalizador("yellow", "Aguardando confirmação");
+            
+            document.getElementById("status").innerHTML = 
+              `Pessoa escaneada: <strong>${classeMaisProvavel}</strong><br>` +
+              `<div class="btn-group">` +
+                `<button class="btn btn-repeat" onclick="reiniciarLeitura()">Repetir</button>` +
+                `<button class="btn btn-confirm" onclick="confirmarAcesso()">Confirmar</button>` +
+              `</div>`;
+          } else {
+            // Leitura em andamento
+            atualizarSinalizador("yellow", "Realizando leitura");
+            document.getElementById("status").innerHTML = 
+              `Identificando <strong>${classeMaisProvavel}</strong>...<br>` +
+              `Mantenha a posição por mais <strong>${tempoRestante}s</strong>.`;
+          }
+
+        } else {
+          // Rosto identificado porém sem cadastro / desconhecido
+          colaboradorDetectado = null;
+          tempoInicioLeitura = null;
+          atualizarSinalizador("red", "Colaborador não registrado");
+          document.getElementById("status").innerText = "Colaborador não registrado no sistema.";
+        }
+
+      } else {
+        // NENHUM rosto com 90%+ de certeza
+        colaboradorDetectado = null;
+        tempoInicioLeitura = null;
+        atualizarSinalizador("yellow", "Realizando leitura");
+        document.getElementById("status").innerText = "Aguardando reconhecimento...";
+      }
+    }
+
+    function confirmarAcesso() {
+      const nome = colaboradorPendente;
+      const link = linksOneDrive[nome];
+
+      // Ativa o LED Verde com a mensagem solicitada por 1 segundo
+      atualizarSinalizador("green", "Colaborador validado");
+      document.getElementById("status").innerHTML = `<strong style="color: #28a745;">Colaborador validado! Redirecionando...</strong>`;
+
+      setTimeout(() => {
+        const novaAba = window.open(link, "_blank");
+
+        if (!novaAba || novaAba.closed || typeof novaAba.closed === 'undefined') {
+          window.location.href = link;
+        } else {
+          reiniciarLeitura();
+        }
+      }, 1000); // Aguarda exatamente 1 segundo antes de abrir o link
+    }
+
+    function reiniciarLeitura() {
+      emPausa = false;
+      colaboradorPendente = null;
+      colaboradorDetectado = null;
+      tempoInicioLeitura = null;
+      atualizarSinalizador("yellow", "Realizando leitura");
+      document.getElementById("status").innerText = "Aguardando próximo reconhecimento...";
+    }
+
+    init();
+  </script>
+</body>
+</html>
