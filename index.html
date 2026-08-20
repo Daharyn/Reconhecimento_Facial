@@ -343,7 +343,7 @@
     async function cadastrarColaborador() {
       const nomeModelo   = document.getElementById("input-nome-modelo").value.trim();
       const nomeExibicao = document.getElementById("input-nome-exibicao").value.trim();
-      const linkOneDrive = document.getElementById("input-link").value.trim();
+      //const linkOneDrive = document.getElementById("input-link").value.trim(); // Removido para geração automática de link OneDrive
       const statusDiv    = document.getElementById("status-cadastro");
 
       if (!nomeModelo || !nomeExibicao || !linkOneDrive || !fotoCadastroBase64) {
