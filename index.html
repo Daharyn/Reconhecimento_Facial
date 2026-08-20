@@ -346,7 +346,8 @@
       //const linkOneDrive = document.getElementById("input-link").value.trim(); // Removido para geração automática de link OneDrive
       const statusDiv    = document.getElementById("status-cadastro");
 
-      if (!nomeModelo || !nomeExibicao || !linkOneDrive || !fotoCadastroBase64) {
+      //if (!nomeModelo || !nomeExibicao || !linkOneDrive || !fotoCadastroBase64) { // Removido para geração automática de link OneDrive
+      if (!nomeModelo || !nomeExibicao || !fotoCadastroBase64) {
         statusDiv.innerText = "⚠️ Preencha todos os campos e tire a foto antes de cadastrar.";
         return;
       }
@@ -360,7 +361,7 @@
           body: JSON.stringify({
             nome_modelo:   nomeModelo,
             nome_exibicao: nomeExibicao,
-            link_onedrive: linkOneDrive,
+            //link_onedrive: linkOneDrive, // Removido para geração automática de link OneDrive
             foto_base64:   fotoCadastroBase64
           })
         });
