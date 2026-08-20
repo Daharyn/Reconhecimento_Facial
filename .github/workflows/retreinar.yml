@@ -10,22 +10,36 @@ jobs:
 
     steps:
 
-      - name: 1 - Baixar repositorio
+      - name: 1 - Baixar repositorio publico
         uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.TOKEN_COLABORADORES }}
 
-      - name: 2 - Instalar Python
+      - name: 2 - Baixar repositorio privado com dados
+        uses: actions/checkout@v3
+        with:
+          repository: daharyn/Colaboradores_Dados
+          token: ${{ secrets.TOKEN_COLABORADORES }}
+          path: dados_privados
+
+      - name: 3 - Instalar Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.10"
 
-      - name: 3 - Instalar dependencias
+      - name: 4 - Instalar dependencias
         run: |
           pip install tensorflow pillow numpy tensorflowjs
 
-      - name: 4 - Retreinar modelo
+      - name: 5 - Copiar fotos e script para pasta de trabalho
+        run: |
+          cp -r dados_privados/fotos_colaboradores ./fotos_colaboradores
+          cp dados_privados/retreinar.py ./retreinar.py
+
+      - name: 6 - Retreinar modelo
         run: python retreinar.py
 
-      - name: 5 - Salvar modelo atualizado no repositorio
+      - name: 7 - Salvar modelo atualizado no repositorio publico
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
