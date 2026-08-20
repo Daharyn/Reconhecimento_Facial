@@ -100,18 +100,14 @@
 
   <script type="text/javascript">
 
-    // ============================================================
-    // CONFIGURACOES — PREENCHA APENAS ESTE BLOCO
-    // ============================================================
-
-    // URL do modelo Teachable Machine — nao alterar
-    const URL_MODELO = "https://daharyn.github.io/Reconhecimento_Facial/";
-
-    // Esse fluxo le a SharePoint List e retorna os colaboradores ativos
-    const URL_API = "https://defaultd233d58a997343a7af696763630548.a0.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/13/workflows/4d36e448960f4cdf9b4c976c378e6d6b/triggers/manual/paths/invoke?api-version=1";
-
-    // Esse fluxo recebe os dados do formulario e cadastra o colaborador
-    const URL_CADASTRO = "https://defaultd233d58a997343a7af696763630548.a0.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/13/workflows/3d853d9e9b8d4b97a04bff86c0eac212/triggers/manual/paths/invoke?api-version=1";
+   // ================================================
+// ⚙️ CONFIGURAÇÕES — edite apenas este bloco
+// ================================================
+const URL_MODELO   = "https://daharyn.github.io/Reconhecimento_Facial/";
+const URL_API      = "https://daharyn.github.io/Reconhecimento_Facial/colaboradores.json";
+//                  aponta para o arquivo JSON no GitHub — sem autenticação!
+const URL_CADASTRO = "https://defaultd233d58a997343a7af696763630548.a0.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/13/workflows/3d853d9e9b8d4b97a04bff86c0eac212/triggers/manual/paths/invoke?api-version=1";
+//                  cadastro continua via Power Automate — funciona pois envia dados autenticados
 
     // Grau minimo de certeza para reconhecer um rosto (90%)
     const CONFIRMACAO_MINIMA = 0.90;
