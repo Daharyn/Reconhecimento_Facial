@@ -20,7 +20,7 @@ jobs:
 
       - name: 3 - Instalar dependencias
         run: |
-          pip install tensorflow pillow numpy
+          pip install tensorflow pillow numpy tensorflowjs
 
       - name: 4 - Retreinar modelo
         run: python retreinar.py
