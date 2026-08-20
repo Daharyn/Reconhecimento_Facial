@@ -98,201 +98,184 @@
     <div id="status-cadastro"></div>
   </div>
 
-  <script type="text/javascript">
+<script type="text/javascript"
 
-   // ================================================
-// ⚙️ CONFIGURAÇÕES — edite apenas este bloco
-// ================================================
-const URL_MODELO   = "https://daharyn.github.io/Reconhecimento_Facial/";
-const URL_API = "https://raw.githubusercontent.com/daharyn/Colaboradores_Dados/main/colaboradores.json";
-//                  aponta para o arquivo JSON no GitHub — sem autenticação!
-const URL_CADASTRO = "https://defaultd233d58a997343a7af696763630548.a0.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/13/workflows/3d853d9e9b8d4b97a04bff86c0eac212/triggers/manual/paths/invoke?api-version=1";
-//                  cadastro continua via Power Automate — funciona pois envia dados autenticados
+>   // ================================================
+  // ⚙️ CONFIGURAÇÕES
+  // ================================================
+  const URL_MODELO = "https://daharyn.github.io/Reconhecimento_Facial/";
+  const URL_JSON   = "https://daharyn.github.io/Reconhecimento_Facial/colaboradores_public.json";
 
-    // Grau minimo de certeza para reconhecer um rosto (90%)
-    const CONFIRMACAO_MINIMA = 0.90;
+  const CONFIRMACAO_MINIMA   = 0.90;
+  const TEMPO_CONFIRMACAO_MS = 2000;
 
-    // Tempo que o colaborador precisa manter a posicao (2s)
-    const TEMPO_CONFIRMACAO_MS = 2000;
+  let model, webcam, emPausa = false;
+  let colaboradorDetectado = null;
+  let tempoInicioLeitura   = null;
+  let colaboradorPendente  = null;
+  let linksOneDrive        = {};   // ← preenchido dinamicamente pelo JSON
 
-    // ============================================================
-    // VARIAVEIS DE CONTROLE — nao altere
-    // ============================================================
-    let model, webcam, emPausa = false;
-    let colaboradorDetectado  = null;
-    let tempoInicioLeitura    = null;
-    let colaboradorPendente   = null;
-    let linksOneDrive         = {};
-    let streamCadastro        = null;
-    let fotoCapturada         = null;
-    let consultaInicializada  = false;
+  // ================================================
+  // CARREGA OS COLABORADORES DO JSON
+  // ================================================
+  async function carregarColaboradores() {
+    try {
+      const resposta = await fetch(URL_JSON);
 
-    // ============================================================
-    // NAVEGACAO ENTRE TELAS
-    // ============================================================
-    function abrirTela(tela) {
-      document.getElementById("tela-inicial").style.display  = "none";
-      document.getElementById("tela-consulta").style.display = "none";
-      document.getElementById("tela-cadastro").style.display = "none";
-      document.getElementById("tela-" + tela).style.display  = "block";
-      if (tela === "consulta" && !consultaInicializada) {
-        consultaInicializada = true;
-        initConsulta();
+      if (!resposta.ok) {
+        console.error("Erro ao carregar colaboradores:", resposta.status);
+        return;
       }
-      if (tela === "cadastro") iniciarCameraCadastro();
+
+      const lista = await resposta.json();
+
+      lista.forEach(c => {
+        linksOneDrive[c.nome_modelo] = {
+          nome: c.nome_exibicao,
+          link: c.link_onedrive
+        };
+      });
+
+      console.log("Colaboradores carregados:", Object.keys(linksOneDrive));
+
+    } catch (erro) {
+      console.error("Erro ao carregar colaboradores:", erro);
     }
-
-    function voltarInicio(tela) {
-      if (tela === "cadastro" && streamCadastro) {
-        streamCadastro.getTracks().forEach(t => t.stop());
-        streamCadastro = null;
-        fotoCapturada  = null;
-      }
-      document.getElementById("tela-" + tela).style.display = "none";
-      document.getElementById("tela-inicial").style.display  = "flex";
-    }
-
-    // ============================================================
-    // MODULO DE CONSULTA
-    // ============================================================
-async function carregarColaboradores() {
-  try {
-    const resposta = await fetch(URL_API, {
-      method: "GET",                          // ← IMPORTANTE: método GET
-      headers: {
-        "Content-Type": "application/json"
-      }
-    });
-
-    if (!resposta.ok) {
-      console.error("Erro HTTP:", resposta.status);
-      return;
-    }
-
-    const texto = await resposta.text();
-    console.log("Resposta bruta:", texto);    // ← Mostra o retorno no console
-
-    const lista = JSON.parse(texto);
-
-    if (!Array.isArray(lista)) {
-      console.error("Retornou objeto, não array:", lista);
-      return;
-    }
-
-    lista.forEach(c => {
-      linksOneDrive[c.nome_modelo] = {
-        nome: c.nome_exibicao,
-        link: c.link_onedrive
-      };
-    });
-
-    console.log("Colaboradores carregados:", linksOneDrive);
-
-  } catch (erro) {
-    console.error("Erro ao carregar:", erro);
   }
-}
 
-    async function initConsulta() {
-      document.getElementById("status").innerText = "Carregando colaboradores...";
-      await carregarColaboradores();
-      const modelURL    = URL_MODELO + "model.json";
-      const metadataURL = URL_MODELO + "metadata.json";
-      model  = await tmImage.load(modelURL, metadataURL);
-      webcam = new tmImage.Webcam(220, 220, true);
-      await webcam.setup();
-      await webcam.play();
-      window.requestAnimationFrame(loop);
-      document.getElementById("webcam-container").appendChild(webcam.canvas);
-      atualizarSinalizador("yellow", "Realizando leitura");
-      document.getElementById("status").innerText = "Aguardando reconhecimento...";
-    }
+  // ================================================
+  // INICIALIZAÇÃO
+  // ================================================
+  async function init() {
+    await carregarColaboradores();   // ← carrega o JSON antes de tudo
 
-    async function loop() {
-      webcam.update();
-      if (!emPausa) { await predict(); }
-      window.requestAnimationFrame(loop);
-    }
+    const modelURL    = URL_MODELO + "model.json";
+    const metadataURL = URL_MODELO + "metadata.json";
 
-    function atualizarSinalizador(cor, legenda) {
-      document.getElementById("led-indicator").className = "indicator " + cor;
-      document.getElementById("led-label").innerText = legenda;
-    }
+    model = await tmImage.load(modelURL, metadataURL);
 
-    async function predict() {
-      const prediction = await model.predict(webcam.canvas);
-      let maiorProbabilidade = 0;
-      let classeMaisProvavel = "";
-      for (let i = 0; i < prediction.length; i++) {
-        if (prediction[i].probability > maiorProbabilidade) {
-          maiorProbabilidade = prediction[i].probability;
-          classeMaisProvavel = prediction[i].className;
-        }
+    webcam = new tmImage.Webcam(220, 220, true);
+    await webcam.setup();
+    await webcam.play();
+    window.requestAnimationFrame(loop);
+
+    document.getElementById("webcam-container").appendChild(webcam.canvas);
+    atualizarSinalizador("yellow", "Realizando leitura");
+    document.getElementById("status").innerText = "Aguardando reconhecimento...";
+  }
+
+  async function loop() {
+    webcam.update();
+    if (!emPausa) await predict();
+    window.requestAnimationFrame(loop);
+  }
+
+  function atualizarSinalizador(cor, legenda) {
+    const led   = document.getElementById("led-indicator");
+    const label = document.getElementById("led-label");
+    led.className  = "indicator " + cor;
+    label.innerText = legenda;
+  }
+
+  // ================================================
+  // RECONHECIMENTO
+  // ================================================
+  async function predict() {
+    const prediction = await model.predict(webcam.canvas);
+
+    let maiorProbabilidade = 0;
+    let classeMaisProvavel = "";
+
+    for (let i = 0; i < prediction.length; i++) {
+      if (prediction[i].probability > maiorProbabilidade) {
+        maiorProbabilidade = prediction[i].probability;
+        classeMaisProvavel  = prediction[i].className;
       }
-      if (maiorProbabilidade >= CONFIRMACAO_MINIMA) {
-        if (linksOneDrive[classeMaisProvavel]) {
-          const agora = Date.now();
-          if (colaboradorDetectado !== classeMaisProvavel) {
-            colaboradorDetectado = classeMaisProvavel;
-            tempoInicioLeitura   = agora;
-          }
-          const tempoDecorrido = agora - tempoInicioLeitura;
-          const tempoRestante  = ((TEMPO_CONFIRMACAO_MS - tempoDecorrido) / 1000).toFixed(1);
-          if (tempoDecorrido >= TEMPO_CONFIRMACAO_MS) {
-            emPausa              = true;
-            colaboradorPendente  = classeMaisProvavel;
-            colaboradorDetectado = null;
-            tempoInicioLeitura   = null;
-            atualizarSinalizador("yellow", "Aguardando confirmacao");
-            document.getElementById("status").innerHTML =
-              "Pessoa escaneada: <strong>" + linksOneDrive[classeMaisProvavel].nome + "</strong><br>" +
-              "<div class='btn-group'>" +
-                "<button class='btn btn-repeat'  onclick='reiniciarLeitura()'>Repetir</button>" +
-                "<button class='btn btn-confirm' onclick='confirmarAcesso()'>Confirmar</button>" +
-              "</div>";
-          } else {
-            atualizarSinalizador("yellow", "Realizando leitura");
-            document.getElementById("status").innerHTML =
-              "Identificando <strong>" + linksOneDrive[classeMaisProvavel].nome + "</strong>...<br>" +
-              "Mantenha a posicao por mais <strong>" + tempoRestante + "s</strong>.";
-          }
-        } else {
+    }
+
+    if (maiorProbabilidade >= CONFIRMACAO_MINIMA) {
+
+      if (linksOneDrive[classeMaisProvavel]) {
+        const agora        = Date.now();
+
+        if (colaboradorDetectado !== classeMaisProvavel) {
+          colaboradorDetectado = classeMaisProvavel;
+          tempoInicioLeitura   = agora;
+        }
+
+        const tempoDecorrido = agora - tempoInicioLeitura;
+        const tempoRestante  = ((TEMPO_CONFIRMACAO_MS - tempoDecorrido) / 1000).toFixed(1);
+
+        if (tempoDecorrido >= TEMPO_CONFIRMACAO_MS) {
+          emPausa             = true;
+          colaboradorPendente = classeMaisProvavel;
           colaboradorDetectado = null;
           tempoInicioLeitura   = null;
-          atualizarSinalizador("red", "Colaborador nao registrado");
-          document.getElementById("status").innerText = "Colaborador nao registrado no sistema.";
+
+          const nomeExibicao = linksOneDrive[classeMaisProvavel].nome;
+
+          atualizarSinalizador("yellow", "Aguardando confirmação");
+          document.getElementById("status").innerHTML =
+            `Pessoa escaneada: <strong>${nomeExibicao}</strong><br>` +
+            `<div class="btn-group">` +
+              `<button class="btn btn-repeat"  onclick="reiniciarLeitura()">Repetir</button>` +
+              `<button class="btn btn-confirm" onclick="confirmarAcesso()">Confirmar</button>` +
+            `</div>`;
+
+        } else {
+          const nomeExibicao = linksOneDrive[classeMaisProvavel].nome;
+          atualizarSinalizador("yellow", "Realizando leitura");
+          document.getElementById("status").innerHTML =
+            `Identificando <strong>${nomeExibicao}</strong>...<br>` +
+            `Mantenha a posição por mais <strong>${tempoRestante}s</strong>.`;
         }
+
       } else {
         colaboradorDetectado = null;
         tempoInicioLeitura   = null;
-        atualizarSinalizador("yellow", "Realizando leitura");
-        document.getElementById("status").innerText = "Aguardando reconhecimento...";
+        atualizarSinalizador("red", "Colaborador não registrado");
+        document.getElementById("status").innerText = "Colaborador não registrado no sistema.";
       }
-    }
 
-    function confirmarAcesso() {
-      const link = linksOneDrive[colaboradorPendente].link;
-      atualizarSinalizador("green", "Colaborador validado");
-      document.getElementById("status").innerHTML =
-        "<strong style='color:#28a745;'>Colaborador validado! Redirecionando...</strong>";
-      setTimeout(() => {
-        const novaAba = window.open(link, "_blank");
-        if (!novaAba || novaAba.closed || typeof novaAba.closed === "undefined") {
-          window.location.href = link;
-        } else {
-          reiniciarLeitura();
-        }
-      }, 1000);
-    }
-
-    function reiniciarLeitura() {
-      emPausa              = false;
-      colaboradorPendente  = null;
+    } else {
       colaboradorDetectado = null;
       tempoInicioLeitura   = null;
       atualizarSinalizador("yellow", "Realizando leitura");
-      document.getElementById("status").innerText = "Aguardando proximo reconhecimento...";
+      document.getElementById("status").innerText = "Aguardando reconhecimento...";
     }
+  }
+
+  // ================================================
+  // CONFIRMAÇÃO E REINÍCIO
+  // ================================================
+  function confirmarAcesso() {
+    const nome = colaboradorPendente;
+    const link = linksOneDrive[nome].link;
+
+    atualizarSinalizador("green", "Colaborador validado");
+    document.getElementById("status").innerHTML =
+      `<strong style="color: #28a745;">Colaborador validado! Redirecionando...</strong>`;
+
+    setTimeout(() => {
+      const novaAba = window.open(link, "_blank");
+      if (!novaAba || novaAba.closed || typeof novaAba.closed === 'undefined') {
+        window.location.href = link;
+      } else {
+        reiniciarLeitura();
+      }
+    }, 1000);
+  }
+
+  function reiniciarLeitura() {
+    emPausa              = false;
+    colaboradorPendente  = null;
+    colaboradorDetectado = null;
+    tempoInicioLeitura   = null;
+    atualizarSinalizador("yellow", "Realizando leitura");
+    document.getElementById("status").innerText = "Aguardando próximo reconhecimento...";
+  }
+
+  init();
 
     // ============================================================
     // MODULO DE CADASTRO
