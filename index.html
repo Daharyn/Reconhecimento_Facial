@@ -159,21 +159,43 @@
     // ============================================================
     // MODULO DE CONSULTA
     // ============================================================
-    async function carregarColaboradores() {
-      try {
-        const resposta = await fetch(URL_API);
-        const lista    = await resposta.json();
-        lista.forEach(c => {
-          linksOneDrive[c.nome_modelo] = {
-            nome: c.nome_exibicao,
-            link: c.link_onedrive
-          };
-        });
-      } catch (erro) {
-        document.getElementById("status").innerText = "Erro ao carregar lista de colaboradores.";
-        console.error("Erro ao carregar colaboradores:", erro);
+async function carregarColaboradores() {
+  try {
+    const resposta = await fetch(URL_API, {
+      method: "GET",                          // ← IMPORTANTE: método GET
+      headers: {
+        "Content-Type": "application/json"
       }
+    });
+
+    if (!resposta.ok) {
+      console.error("Erro HTTP:", resposta.status);
+      return;
     }
+
+    const texto = await resposta.text();
+    console.log("Resposta bruta:", texto);    // ← Mostra o retorno no console
+
+    const lista = JSON.parse(texto);
+
+    if (!Array.isArray(lista)) {
+      console.error("Retornou objeto, não array:", lista);
+      return;
+    }
+
+    lista.forEach(c => {
+      linksOneDrive[c.nome_modelo] = {
+        nome: c.nome_exibicao,
+        link: c.link_onedrive
+      };
+    });
+
+    console.log("Colaboradores carregados:", linksOneDrive);
+
+  } catch (erro) {
+    console.error("Erro ao carregar:", erro);
+  }
+}
 
     async function initConsulta() {
       document.getElementById("status").innerText = "Carregando colaboradores...";
