@@ -1,196 +1,308 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <title>Reconhecimento Facial - Documentos de Segurança</title>
+<html lang="pt-BR"
+
+> <head>
+  <meta charset="UTF-8"
+
+>   <meta name="viewport" content="width=device-width, initial-scale=1.0"
+
+>   <title>Documentos de Segurança - Motiva</title>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; text-align: center; background: #f0f2f5; padding: 20px; }
-    
-    /* Layout da Câmera e Sinalizador */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; text-align: center; background: #f0f2f5; padding: 20px; min-height: 100vh; }
+    h1 { color: #333; font-size: 1.4em; margin-bottom: 6px; }
+    p  { color: #666; font-size: 0.95em; margin-bottom: 20px; }
+
+    /* ── TELA INICIAL ── */
+    #tela-inicial { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 70vh; gap: 20px; }
+    .btn-menu { width: 260px; padding: 18px 20px; font-size: 1.1em; font-weight: bold; border: none; border-radius: 12px; cursor: pointer; color: white; transition: opacity 0.2s, transform 0.1s; display: flex; align-items: center; justify-content: center; gap: 10px; }
+    .btn-menu:hover { opacity: 0.9; transform: scale(1.02); }
+    .btn-consulta   { background-color: #007bff; }
+    .btn-cadastro   { background-color: #6c757d; }
+
+    /* ── TELAS INTERNAS ── */
+    .tela { display: none; }
+    .btn-voltar { display: inline-flex; align-items: center; gap: 6px; background: none; border: none; color: #007bff; font-size: 0.95em; cursor: pointer; margin-bottom: 16px; font-weight: bold; }
+    .btn-voltar:hover { text-decoration: underline; }
+
+    /* ── CÂMERA + SINALIZADOR ── */
     .camera-wrapper { display: flex; justify-content: center; align-items: center; gap: 20px; margin: 20px auto; }
     #webcam-container { width: 220px; height: 220px; border: 4px solid #333; border-radius: 10px; overflow: hidden; background: #000; }
-    
-    /* Container do Sinalizador LED e Legenda */
     .indicator-box { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 140px; }
     .indicator { width: 30px; height: 30px; border-radius: 50%; background-color: #ccc; transition: background-color 0.3s, box-shadow 0.3s; }
-    
-    /* Cores dos LEDs */
     .indicator.yellow { background-color: #ffc107; box-shadow: 0 0 12px #ffc107; }
-    .indicator.green { background-color: #28a745; box-shadow: 0 0 12px #28a745; }
-    .indicator.red { background-color: #dc3545; box-shadow: 0 0 12px #dc3545; }
-    
+    .indicator.green  { background-color: #28a745; box-shadow: 0 0 12px #28a745; }
+    .indicator.red    { background-color: #dc3545; box-shadow: 0 0 12px #dc3545; }
     #led-label { font-size: 0.85em; font-weight: bold; color: #555; text-align: center; }
-
-    #status { font-size: 1.2em; font-weight: bold; color: #333; margin-top: 15px; min-height: 60px; }
-    
-    /* Botões */
+    #status { font-size: 1.1em; font-weight: bold; color: #333; margin-top: 15px; min-height: 60px; }
     .btn-group { margin-top: 15px; display: flex; justify-content: center; gap: 15px; }
     .btn { padding: 10px 20px; font-size: 1em; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; transition: opacity 0.2s; }
-    .btn:hover { opacity: 0.9; }
-    .btn-confirm { background-color: #28a745; color: white; } /* Botão Confirmar em Verde */
-    .btn-repeat { background-color: #6c757d; color: white; }  /* Botão Repetir em Cinza */
+    .btn:hover   { opacity: 0.9; }
+    .btn-confirm { background-color: #28a745; color: white; }
+    .btn-repeat  { background-color: #6c757d; color: white; }
+
+    /* ── CADASTRO ── */
+    #tela-cadastro input { width: 90%; padding: 11px 14px; margin: 7px 0; border: 1px solid #ccc; border-radius: 8px; font-size: 1em; }
+    #preview-cadastro { width: 220px; height: 220px; border-radius: 10px; border: 3px solid #333; background: #000; margin: 10px auto; display: block; object-fit: cover; }
+    #canvas-cadastro  { display: none; margin: 10px auto; border-radius: 10px; border: 3px solid #28a745; }
+    .btn-foto         { background-color: #007bff; color: white; }
+    .btn-salvar       { background-color: #28a745; color: white; }
+    .btn-repetir-foto { background-color: #6c757d; color: white; }
+    #status-cadastro  { margin-top: 14px; font-weight: bold; font-size: 1em; color: #333; min-height: 28px; }
+    .hint { font-size: 0.78em; color: #999; margin-top: -4px; margin-bottom: 4px; }
   </style>
 </head>
 <body>
 
-  <h1>Acesso a Documentos de Segurança (NRs)</h1>
-  <p>Aproxime o rosto da câmera para validar seu acesso.</p>
-  
-  <div class="camera-wrapper">
-    <div id="webcam-container"></div>
-    <div class="indicator-box">
-      <div id="led-indicator" class="indicator yellow"></div>
-      <div id="led-label">Realizando leitura</div>
-    </div>
+  <h1>📋 Documentos de Segurança</h1>
+  <p>Sistema de acesso a NRs e documentos de colaboradores terceirizados.</p>
+
+  <!-- ══ TELA INICIAL ══ -->
+  <div id="tela-inicial"
+
+>     <button class="btn-menu btn-consulta" onclick="abrirTela('consulta')">🔍 Consultar Colaborador</button>
+    <button class="btn-menu btn-cadastro" onclick="abrirTela('cadastro')">➕ Cadastrar Colaborador</button>
   </div>
 
-  <div id="status">Inicializando câmera...</div>
+  <!-- ══ TELA DE CONSULTA ══ -->
+  <div id="tela-consulta" class="tela"
 
-  <script type="text/javascript">
-    // CONFIGURAÇÕES DO MODELO E LINKS
-    const URL_MODELO = "https://daharyn.github.io/Reconhecimento_Facial/";
+>     <button class="btn-voltar" onclick="voltarInicio('consulta')">← Voltar</button>
+    <h1>🔍 Consultar Colaborador</h1>
+    <p>Aproxime o rosto da câmera para validar seu acesso.</p>
+    <div class="camera-wrapper"
 
-    const linksOneDrive = {
-      "Diego_Felipe": "https://grupoccr.sharepoint.com/:f:/s/InterfaceTramoIII2/IgDUoEZtZyKtRIZDu2vtehGyAbBS1jjc7QCZQ_QsBltCQ8g?e=MFZFaN",
-      "Jorge_Alan": "https://grupoccr.sharepoint.com/:f:/s/InterfaceTramoIII2/IgClHMOoNrXlT5U8UVqut-eQAfzGB8J21O_Pp2APIl_qCJs?e=sSeA4h"
-    };
+>       <div id="webcam-container"></div>
+      <div class="indicator-box"
 
-    const CONFIRMACAO_MINIMA = 0.90;   // 90% de certeza
-    const TEMPO_CONFIRMACAO_MS = 2000; // 2 segundos mantendo a posição
+>         <div id="led-indicator" class="indicator yellow"></div>
+        <div id="led-label">Realizando leitura</div>
+      </div>
+    </div>
+    <div id="status">Inicializando câmera...</div>
+  </div>
+
+  <!-- ══ TELA DE CADASTRO ══ -->
+  <div id="tela-cadastro" class="tela"
+
+>     <button class="btn-voltar" onclick="voltarInicio('cadastro')">← Voltar</button>
+    <h1>➕ Cadastrar Colaborador</h1>
+    <p>Preencha os dados e tire uma foto do colaborador.</p>
+    <input type="text" id="nomeModelo"    placeholder="Nome sem espaço — ex: Carlos_Silva" />
+    <p class="hint">⚠️ Use underline no lugar de espaço. Sem acentos.</p>
+    <input type="text" id="nomeExibicao" placeholder="Nome completo — ex: Carlos Silva" />
+    <input type="text" id="linkOneDrive" placeholder="Link da pasta OneDrive do colaborador" />
+    <video  id="preview-cadastro" autoplay playsinline></video>
+    <canvas id="canvas-cadastro"  width="220" height="220"></canvas>
+    <div class="btn-group"
+
+>       <button class="btn btn-foto"         onclick="tirarFoto()">📷 Tirar Foto</button>
+      <button class="btn btn-repetir-foto" onclick="repetirFoto()" id="btnRepetir" style="display:none;">🔄 Repetir</button>
+    </div>
+    <div class="btn-group"
+
+>       <button class="btn btn-salvar" onclick="cadastrar()" id="btnSalvar" style="display:none;">✅ Cadastrar</button>
+    </div>
+    <div id="status-cadastro"></div>
+  </div>
+
+  <script type="text/javascript"
+
+> 
+    // ================================================
+    // ⚙️ CONFIGURAÇÕES — edite apenas este bloco
+    // ================================================
+    const URL_MODELO   = "https://daharyn.github.io/Reconhecimento_Facial/";
+    const URL_API      = "COLE_AQUI_URL_POWER_AUTOMATE_LEITURA";
+    const URL_CADASTRO = "COLE_AQUI_URL_POWER_AUTOMATE_CADASTRO";
+
+    const CONFIRMACAO_MINIMA   = 0.90;
+    const TEMPO_CONFIRMACAO_MS = 2000;
+    // ================================================
 
     let model, webcam, emPausa = false;
     let colaboradorDetectado = null;
-    let tempoInicioLeitura = null;
-    let colaboradorPendente = null;
+    let tempoInicioLeitura   = null;
+    let colaboradorPendente  = null;
+    let linksOneDrive        = {};
+    let streamCadastro       = null;
+    let fotoCapturada        = null;
+    let consultaInicializada = false;
 
-    async function init() {
-      const modelURL = URL_MODELO + "model.json";
-      const metadataURL = URL_MODELO + "metadata.json";
+    // ── NAVEGAÇÃO ──
+    function abrirTela(tela) {
+      document.getElementById("tela-inicial").style.display  = "none";
+      document.getElementById("tela-consulta").style.display = "none";
+      document.getElementById("tela-cadastro").style.display = "none";
+      document.getElementById("tela-" + tela).style.display  = "block";
+      if (tela === "consulta" && !consultaInicializada) { consultaInicializada = true; initConsulta(); }
+      if (tela === "cadastro") iniciarCameraCadastro();
+    }
 
-      model = await tmImage.load(modelURL, metadataURL);
+    function voltarInicio(tela) {
+      if (tela === "cadastro" && streamCadastro) {
+        streamCadastro.getTracks().forEach(t => t.stop());
+        streamCadastro = null; fotoCapturada = null;
+      }
+      document.getElementById("tela-" + tela).style.display = "none";
+      document.getElementById("tela-inicial").style.display  = "flex";
+    }
 
-      webcam = new tmImage.Webcam(220, 220, true); 
-      await webcam.setup(); 
-      await webcam.play();
+    // ── CONSULTA ──
+    async function carregarColaboradores() {
+      try {
+        const resposta = await fetch(URL_API);
+        const lista    = await resposta.json();
+        lista.forEach(c => {
+          linksOneDrive[c.nome_modelo] = { nome: c.nome_exibicao, link: c.link_onedrive };
+        });
+      } catch (erro) {
+        document.getElementById("status").innerText = "Erro ao carregar lista de colaboradores.";
+      }
+    }
+
+    async function initConsulta() {
+      document.getElementById("status").innerText = "Carregando colaboradores...";
+      await carregarColaboradores();
+      model  = await tmImage.load(URL_MODELO + "model.json", URL_MODELO + "metadata.json");
+      webcam = new tmImage.Webcam(220, 220, true);
+      await webcam.setup(); await webcam.play();
       window.requestAnimationFrame(loop);
-
       document.getElementById("webcam-container").appendChild(webcam.canvas);
       atualizarSinalizador("yellow", "Realizando leitura");
       document.getElementById("status").innerText = "Aguardando reconhecimento...";
     }
 
-    async function loop() {
-      webcam.update();
-      if (!emPausa) {
-        await predict();
-      }
-      window.requestAnimationFrame(loop);
-    }
+    async function loop() { webcam.update(); if (!emPausa) await predict(); window.requestAnimationFrame(loop); }
 
     function atualizarSinalizador(cor, legenda) {
-      const led = document.getElementById("led-indicator");
-      const label = document.getElementById("led-label");
-      led.className = "indicator " + cor;
-      label.innerText = legenda;
+      document.getElementById("led-indicator").className = "indicator " + cor;
+      document.getElementById("led-label").innerText = legenda;
     }
 
     async function predict() {
       const prediction = await model.predict(webcam.canvas);
-      
-      let maiorProbabilidade = 0;
-      let classeMaisProvavel = "";
-
+      let maiorProbabilidade = 0, classeMaisProvavel = "";
       for (let i = 0; i < prediction.length; i++) {
         if (prediction[i].probability > maiorProbabilidade) {
           maiorProbabilidade = prediction[i].probability;
           classeMaisProvavel = prediction[i].className;
         }
       }
-
-      // Se atingiu taxa de certeza >= 90%
       if (maiorProbabilidade >= CONFIRMACAO_MINIMA) {
-        
-        // Colaborador cadastrado no sistema
         if (linksOneDrive[classeMaisProvavel]) {
           const agora = Date.now();
-
-          if (colaboradorDetectado !== classeMaisProvavel) {
-            colaboradorDetectado = classeMaisProvavel;
-            tempoInicioLeitura = agora;
-          }
-
+          if (colaboradorDetectado !== classeMaisProvavel) { colaboradorDetectado = classeMaisProvavel; tempoInicioLeitura = agora; }
           const tempoDecorrido = agora - tempoInicioLeitura;
-          const tempoRestante = ((TEMPO_CONFIRMACAO_MS - tempoDecorrido) / 1000).toFixed(1);
-
+          const tempoRestante  = ((TEMPO_CONFIRMACAO_MS - tempoDecorrido) / 1000).toFixed(1);
           if (tempoDecorrido >= TEMPO_CONFIRMACAO_MS) {
-            // Trava o loop e exibe a tela de confirmação
-            emPausa = true;
-            colaboradorPendente = classeMaisProvavel;
-            colaboradorDetectado = null;
-            tempoInicioLeitura = null;
-
+            emPausa = true; colaboradorPendente = classeMaisProvavel; colaboradorDetectado = null; tempoInicioLeitura = null;
             atualizarSinalizador("yellow", "Aguardando confirmação");
-            
-            document.getElementById("status").innerHTML = 
-              `Pessoa escaneada: <strong>${classeMaisProvavel}</strong><br>` +
-              `<div class="btn-group">` +
-                `<button class="btn btn-repeat" onclick="reiniciarLeitura()">Repetir</button>` +
-                `<button class="btn btn-confirm" onclick="confirmarAcesso()">Confirmar</button>` +
-              `</div>`;
+            document.getElementById("status").innerHTML =
+              `Pessoa escaneada: <strong>${linksOneDrive[classeMaisProvavel].nome}</strong><br>` +
+              `<div class="btn-group"><button class="btn btn-repeat" onclick="reiniciarLeitura()">Repetir</button>` +
+              `<button class="btn btn-confirm" onclick="confirmarAcesso()">Confirmar</button></div>`;
           } else {
-            // Leitura em andamento
             atualizarSinalizador("yellow", "Realizando leitura");
-            document.getElementById("status").innerHTML = 
-              `Identificando <strong>${classeMaisProvavel}</strong>...<br>` +
+            document.getElementById("status").innerHTML =
+              `Identificando <strong>${linksOneDrive[classeMaisProvavel].nome}</strong>...<br>` +
               `Mantenha a posição por mais <strong>${tempoRestante}s</strong>.`;
           }
-
         } else {
-          // Rosto identificado porém sem cadastro / desconhecido
-          colaboradorDetectado = null;
-          tempoInicioLeitura = null;
+          colaboradorDetectado = null; tempoInicioLeitura = null;
           atualizarSinalizador("red", "Colaborador não registrado");
           document.getElementById("status").innerText = "Colaborador não registrado no sistema.";
         }
-
       } else {
-        // NENHUM rosto com 90%+ de certeza
-        colaboradorDetectado = null;
-        tempoInicioLeitura = null;
+        colaboradorDetectado = null; tempoInicioLeitura = null;
         atualizarSinalizador("yellow", "Realizando leitura");
         document.getElementById("status").innerText = "Aguardando reconhecimento...";
       }
     }
 
     function confirmarAcesso() {
-      const nome = colaboradorPendente;
-      const link = linksOneDrive[nome];
-
-      // Ativa o LED Verde com a mensagem solicitada por 1 segundo
+      const link = linksOneDrive[colaboradorPendente].link;
       atualizarSinalizador("green", "Colaborador validado");
-      document.getElementById("status").innerHTML = `<strong style="color: #28a745;">Colaborador validado! Redirecionando...</strong>`;
-
+      document.getElementById("status").innerHTML = `<strong style="color:#28a745;">Colaborador validado! Redirecionando...</strong>`;
       setTimeout(() => {
         const novaAba = window.open(link, "_blank");
-
-        if (!novaAba || novaAba.closed || typeof novaAba.closed === 'undefined') {
-          window.location.href = link;
-        } else {
-          reiniciarLeitura();
-        }
-      }, 1000); // Aguarda exatamente 1 segundo antes de abrir o link
+        if (!novaAba || novaAba.closed || typeof novaAba.closed === "undefined") { window.location.href = link; } else { reiniciarLeitura(); }
+      }, 1000);
     }
 
     function reiniciarLeitura() {
-      emPausa = false;
-      colaboradorPendente = null;
-      colaboradorDetectado = null;
-      tempoInicioLeitura = null;
+      emPausa = false; colaboradorPendente = null; colaboradorDetectado = null; tempoInicioLeitura = null;
       atualizarSinalizador("yellow", "Realizando leitura");
       document.getElementById("status").innerText = "Aguardando próximo reconhecimento...";
     }
+
+    // ── CADASTRO ──
+    async function iniciarCameraCadastro() {
+      fotoCapturada = null;
+      document.getElementById("preview-cadastro").style.display = "block";
+      document.getElementById("canvas-cadastro").style.display  = "none";
+      document.getElementById("btnRepetir").style.display       = "none";
+      document.getElementById("btnSalvar").style.display        = "none";
+      document.getElementById("status-cadastro").innerText      = "";
+      try {
+        streamCadastro = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        document.getElementById("preview-cadastro").srcObject = streamCadastro;
+      } catch (erro) { document.getElementById("status-cadastro").innerText = "❌ Erro ao acessar câmera."; }
+    }
+
+    function tirarFoto() {
+      const video = document.getElementById("preview-cadastro"), canvas = document.getElementById("canvas-cadastro");
+      canvas.getContext("2d").drawImage(video, 0, 0, 220, 220);
+      fotoCapturada = canvas.toDataURL("image/jpeg");
+      video.style.display = "none"; canvas.style.display = "block";
+      document.getElementById("btnRepetir").style.display = "inline-block";
+      document.getElementById("btnSalvar").style.display  = "inline-block";
+      document.getElementById("status-cadastro").innerText = "✅ Foto capturada! Confira e clique em Cadastrar.";
+    }
+
+    function repetirFoto() {
+      fotoCapturada = null;
+      document.getElementById("preview-cadastro").style.display = "block";
+      document.getElementById("canvas-cadastro").style.display  = "none";
+      document.getElementById("btnRepetir").style.display       = "none";
+      document.getElementById("btnSalvar").style.display        = "none";
+      document.getElementById("status-cadastro").innerText      = "";
+    }
+
+    async function cadastrar() {
+      const nomeModelo   = document.getElementById("nomeModelo").value.trim();
+      const nomeExibicao = document.getElementById("nomeExibicao").value.trim();
+      const linkOneDrive = document.getElementById("linkOneDrive").value.trim();
+
+      if (!nomeModelo || !nomeExibicao || !linkOneDrive) { document.getElementById("status-cadastro").innerText = "⚠️ Preencha todos os campos!"; return; }
+      if (nomeModelo.includes(" ")) { document.getElementById("status-cadastro").innerText = "⚠️ Use underline no lugar de espaço: Carlos_Silva"; return; }
+      if (!fotoCapturada) { document.getElementById("status-cadastro").innerText = "⚠️ Tire uma foto antes de cadastrar!"; return; }
+
+      document.getElementById("status-cadastro").innerText = "⏳ Cadastrando colaborador...";
+      document.getElementById("btnSalvar").disabled = true;
+
+      try {
+        const resposta = await fetch(URL_CADASTRO, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nome_modelo: nomeModelo, nome_exibicao: nomeExibicao, link_onedrive: linkOneDrive, foto_base64: fotoCapturada })
+        });
+        if (resposta.ok) {
+          document.getElementById("status-cadastro").innerHTML =
+            `✅ <strong>${nomeExibicao}</strong> cadastrado com sucesso!<br>⏳ O modelo será atualizado em alguns minutos.`;
+          document.getElementById("nomeModelo").value = "";
+          document.getElementById("nomeExibicao").value = "";
+          document.getElementById("linkOneDrive").value = "";
+          repetirFoto();
+        } else { document.getElementById("status-cadastro").innerText = "❌ Erro ao cadastrar. Tente novamente."; }
+      } catch (erro) { document.getElementById("status-cadastro").innerText = "❌ Erro de conexão. Verifique a internet."; }
+      document.getElementById("btnSalvar").disabled = false;
+    }
+
+  </script>
+</body>
+</html>
 
     init();
   </script>
