@@ -9,20 +9,15 @@
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
   <style>
     body { font-family: Arial, sans-serif; text-align: center; background: #f0f2f5; padding: 20px; }
-
     .camera-wrapper { display: flex; justify-content: center; align-items: center; gap: 20px; margin: 20px auto; }
     #webcam-container { width: 220px; height: 220px; border: 4px solid #333; border-radius: 10px; overflow: hidden; background: #000; }
-
     .indicator-box { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 140px; }
     .indicator { width: 30px; height: 30px; border-radius: 50%; background-color: #ccc; transition: background-color 0.3s, box-shadow 0.3s; }
-
     .indicator.yellow { background-color: #ffc107; box-shadow: 0 0 12px #ffc107; }
     .indicator.green  { background-color: #28a745; box-shadow: 0 0 12px #28a745; }
     .indicator.red    { background-color: #dc3545; box-shadow: 0 0 12px #dc3545; }
-
     #led-label { font-size: 0.85em; font-weight: bold; color: #555; text-align: center; }
     #status { font-size: 1.2em; font-weight: bold; color: #333; margin-top: 15px; min-height: 60px; }
-
     .btn-group { margin-top: 15px; display: flex; justify-content: center; gap: 15px; }
     .btn { padding: 10px 20px; font-size: 1em; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; transition: opacity 0.2s; }
     .btn:hover { opacity: 0.9; }
@@ -50,9 +45,6 @@
   <script type="text/javascript"
 
 > 
-    // ================================================
-    // ⚙️ CONFIGURAÇÕES
-    // ================================================
     const URL_MODELO = "https://daharyn.github.io/Reconhecimento_Facial/";
     const URL_JSON   = "https://daharyn.github.io/Reconhecimento_Facial/colaboradores_public.json";
 
@@ -65,22 +57,13 @@
     let colaboradorPendente  = null;
     let linksOneDrive        = {};
 
-    // ================================================
-    // CARREGA OS COLABORADORES DO JSON
-    // ================================================
     async function carregarColaboradores() {
       try {
         const resposta = await fetch(URL_JSON);
-        if (!resposta.ok) {
-          console.error("Erro ao carregar colaboradores:", resposta.status);
-          return;
-        }
+        if (!resposta.ok) { console.error("Erro ao carregar JSON:", resposta.status); return; }
         const lista = await resposta.json();
         lista.forEach(c => {
-          linksOneDrive[c.nome_modelo] = {
-            nome: c.nome_exibicao,
-            link: c.link_onedrive
-          };
+          linksOneDrive[c.nome_modelo] = { nome: c.nome_exibicao, link: c.link_onedrive };
         });
         console.log("Colaboradores carregados:", Object.keys(linksOneDrive));
       } catch (erro) {
@@ -88,22 +71,13 @@
       }
     }
 
-    // ================================================
-    // INICIALIZAÇÃO
-    // ================================================
     async function init() {
       await carregarColaboradores();
-
-      const modelURL    = URL_MODELO + "model.json";
-      const metadataURL = URL_MODELO + "metadata.json";
-
-      model = await tmImage.load(modelURL, metadataURL);
-
+      model  = await tmImage.load(URL_MODELO + "model.json", URL_MODELO + "metadata.json");
       webcam = new tmImage.Webcam(220, 220, true);
       await webcam.setup();
       await webcam.play();
       window.requestAnimationFrame(loop);
-
       document.getElementById("webcam-container").appendChild(webcam.canvas);
       atualizarSinalizador("yellow", "Realizando leitura");
       document.getElementById("status").innerText = "Aguardando reconhecimento...";
@@ -116,38 +90,29 @@
     }
 
     function atualizarSinalizador(cor, legenda) {
-      const led   = document.getElementById("led-indicator");
-      const label = document.getElementById("led-label");
-      led.className  = "indicator " + cor;
-      label.innerText = legenda;
+      document.getElementById("led-indicator").className = "indicator " + cor;
+      document.getElementById("led-label").innerText = legenda;
     }
 
-    // ================================================
-    // RECONHECIMENTO
-    // ================================================
     async function predict() {
       const prediction = await model.predict(webcam.canvas);
-
       let maiorProbabilidade = 0;
       let classeMaisProvavel = "";
 
       for (let i = 0; i < prediction.length; i++) {
         if (prediction[i].probability > maiorProbabilidade) {
           maiorProbabilidade = prediction[i].probability;
-          classeMaisProvavel  = prediction[i].className;
+          classeMaisProvavel = prediction[i].className;
         }
       }
 
       if (maiorProbabilidade >= CONFIRMACAO_MINIMA) {
-
         if (linksOneDrive[classeMaisProvavel]) {
           const agora = Date.now();
-
           if (colaboradorDetectado !== classeMaisProvavel) {
             colaboradorDetectado = classeMaisProvavel;
             tempoInicioLeitura   = agora;
           }
-
           const tempoDecorrido = agora - tempoInicioLeitura;
           const tempoRestante  = ((TEMPO_CONFIRMACAO_MS - tempoDecorrido) / 1000).toFixed(1);
 
@@ -156,9 +121,7 @@
             colaboradorPendente = classeMaisProvavel;
             colaboradorDetectado = null;
             tempoInicioLeitura   = null;
-
-            const nomeExibicao = linksOneDrive[classeMaisProvavel].nome;
-
+            const nomeExibicao   = linksOneDrive[classeMaisProvavel].nome;
             atualizarSinalizador("yellow", "Aguardando confirmação");
             document.getElementById("status").innerHTML =
               `Pessoa escaneada: <strong>${nomeExibicao}</strong><br>` +
@@ -166,7 +129,6 @@
                 `<button class="btn btn-repeat"  onclick="reiniciarLeitura()">Repetir</button>` +
                 `<button class="btn btn-confirm" onclick="confirmarAcesso()">Confirmar</button>` +
               `</div>`;
-
           } else {
             const nomeExibicao = linksOneDrive[classeMaisProvavel].nome;
             atualizarSinalizador("yellow", "Realizando leitura");
@@ -174,14 +136,12 @@
               `Identificando <strong>${nomeExibicao}</strong>...<br>` +
               `Mantenha a posição por mais <strong>${tempoRestante}s</strong>.`;
           }
-
         } else {
           colaboradorDetectado = null;
           tempoInicioLeitura   = null;
           atualizarSinalizador("red", "Colaborador não registrado");
           document.getElementById("status").innerText = "Colaborador não registrado no sistema.";
         }
-
       } else {
         colaboradorDetectado = null;
         tempoInicioLeitura   = null;
@@ -190,17 +150,11 @@
       }
     }
 
-    // ================================================
-    // CONFIRMAÇÃO E REINÍCIO
-    // ================================================
     function confirmarAcesso() {
-      const nome = colaboradorPendente;
-      const link = linksOneDrive[nome].link;
-
+      const link = linksOneDrive[colaboradorPendente].link;
       atualizarSinalizador("green", "Colaborador validado");
       document.getElementById("status").innerHTML =
         `<strong style="color: #28a745;">Colaborador validado! Redirecionando...</strong>`;
-
       setTimeout(() => {
         const novaAba = window.open(link, "_blank");
         if (!novaAba || novaAba.closed || typeof novaAba.closed === 'undefined') {
