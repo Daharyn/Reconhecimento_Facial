@@ -1,0 +1,34 @@
+name: Retreinar Modelo
+
+on:
+  repository_dispatch:
+    types: [novo_colaborador]
+
+jobs:
+  retreinar:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: 1 - Baixar repositorio
+        uses: actions/checkout@v3
+
+      - name: 2 - Instalar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: 3 - Instalar dependencias
+        run: |
+          pip install tensorflow pillow numpy
+
+      - name: 4 - Retreinar modelo
+        run: python retreinar.py
+
+      - name: 5 - Salvar modelo atualizado no repositorio
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add model.json weights.bin metadata.json
+          git commit -m "Modelo atualizado - novo colaborador cadastrado" || echo "Sem alteracoes"
+          git push
