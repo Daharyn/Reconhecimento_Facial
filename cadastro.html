@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="pt-BR"
+
+> <head>
+  <meta charset="UTF-8"
+
+>   <meta name="viewport" content="width=device-width, initial-scale=1.0"
+
+>   <title>Cadastro de Colaborador - Motiva</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
+    body { background: #f0f2f5; padding: 20px; text-align: center; }
+    h1 { color: #333; font-size: 1.4em; margin-bottom: 6px; }
+    p  { color: #666; font-size: 0.9em; margin-bottom: 20px; }
+
+    .form-cadastro { max-width: 400px; margin: 0 auto; text-align: left; }
+    label { display: block; font-weight: bold; margin-top: 14px; margin-bottom: 5px; color: #444; }
+    input { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc; font-size: 1em; }
+    .hint { font-size: 0.78em; color: #999; margin-top: 3px; }
+
+    #preview-cadastro { width: 220px; height: 220px; border-radius: 10px; border: 3px solid #333; background: #000; margin: 15px auto; display: block; }
+    #canvas-cadastro  { display: none; margin: 15px auto; border-radius: 10px; border: 3px solid #28a745; }
+
+    .btn { width: 100%; padding: 12px; font-size: 1em; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; margin-top: 12px; color: white; }
+    .btn-foto      { background-color: #007bff; }
+    .btn-repetir   { background-color: #6c757d; display: none; }
+    .btn-cadastrar { background-color: #28a745; display: none; }
+    .btn:hover     { opacity: 0.85; }
+
+    #status-cadastro { margin-top: 15px; font-weight: bold; font-size: 1em; min-height: 28px; }
+  </style>
+</head>
+<body>
+
+  <h1>➕ Cadastrar Novo Colaborador</h1>
+  <p>Preencha os dados e tire uma foto do colaborador.</p>
+
+  <div class="form-cadastro"
+
+>     <label>Nome sem espaço (usado no modelo):</label>
+    <input type="text" id="input-nome-modelo" placeholder="Ex: Carlos_Silva"
+
+>     <p class="hint">⚠️ Use underline no lugar de espaço. Sem acentos.</p>
+
+    <label>Nome completo para exibição:</label>
+    <input type="text" id="input-nome-exibicao" placeholder="Ex: Carlos Silva"
+
+> 
+    <video  id="preview-cadastro" autoplay playsinline></video>
+    <canvas id="canvas-cadastro"  width="220" height="220"></canvas>
+
+    <button class="btn btn-foto"      onclick="tirarFoto()">📷 Tirar Foto</button>
+    <button class="btn btn-repetir"   onclick="repetirFoto()" id="btnRepetir">🔄 Repetir Foto</button>
+    <button class="btn btn-cadastrar" onclick="cadastrarColaborador()" id="btnCadastrar">✅ Cadastrar</button>
+
+    <div id="status-cadastro"></div>
+  </div>
+
+  <script>
+    const URL_CADASTRO = "https://defaultd233d58a997343a7af696763630548.a0.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/13/workflows/3d853d9e9b8d4b97a04bff86c0eac212/triggers/manual/paths/invoke?api-version=1";
+
+    let streamCadastro     = null;
+    let fotoCadastroBase64 = null;
+
+    async function iniciarCamera() {
+      try {
+        streamCadastro = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        document.getElementById("preview-cadastro").srcObject = streamCadastro;
+      } catch (erro) {
+        document.getElementById("status-cadastro").innerText = "❌ Erro ao acessar câmera: " + erro.message;
+      }
+    }
+
+    function tirarFoto() {
+      const video  = document.getElementById("preview-cadastro");
+      const canvas = document.getElementById("canvas-cadastro");
+      canvas.getContext("2d").drawImage(video, 0, 0, 220, 220);
+      fotoCadastroBase64 = canvas.toDataURL("image/jpeg");
+      video.style.display  = "none";
+      canvas.style.display = "block";
+      document.getElementById("btnRepetir").style.display   = "block";
+      document.getElementById("btnCadastrar").style.display = "block";
+      document.getElementById("status-cadastro").innerText  = "✅ Foto capturada! Confira e clique em Cadastrar.";
+      if (streamCadastro) { streamCadastro.getTracks().forEach(t => t.stop()); streamCadastro = null; }
+    }
+
+    function repetirFoto() {
+      fotoCadastroBase64 = null;
+      document.getElementById("preview-cadastro").style.display = "block";
+      document.getElementById("canvas-cadastro").style.display  = "none";
+      document.getElementById("btnRepetir").style.display        = "none";
+      document.getElementById("btnCadastrar").style.display      = "none";
+      document.getElementById("status-cadastro").innerText       = "";
+      iniciarCamera();
+    }
+
+    async function cadastrarColaborador() {
+      const nomeModelo   = document.getElementById("input-nome-modelo").value.trim();
+      const nomeExibicao = document.getElementById("input-nome-exibicao").value.trim();
+      const statusDiv    = document.getElementById("status-cadastro");
+
+      if (!nomeModelo || !nomeExibicao) {
+        statusDiv.innerText = "⚠️ Preencha o nome do colaborador antes de cadastrar.";
+        return;
+      }
+      if (!fotoCadastroBase64) {
+        statusDiv.innerText = "⚠️ Tire uma foto antes de cadastrar!";
+        return;
+      }
+      if (nomeModelo.includes(" ")) {
+        statusDiv.innerText = "⚠️ Use underline no lugar de espaço: Carlos_Silva";
+        return;
+      }
+
+      statusDiv.innerText = "⏳ Cadastrando colaborador...";
+      document.getElementById("btnCadastrar").disabled = true;
+
+      try {
+        const resposta = await fetch(URL_CADASTRO, {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nome_modelo:   nomeModelo,
+            nome_exibicao: nomeExibicao,
+            foto_base64:   fotoCadastroBase64
+          })
+        });
+
+        if (resposta.ok) {
+          statusDiv.innerHTML =
+            `<span style="color:#28a745;">✅ <strong>${nomeExibicao}</strong> cadastrado com sucesso!<br>
+             ⏳ O modelo será atualizado em alguns minutos.</span>`;
+          document.getElementById("input-nome-modelo").value   = "";
+          document.getElementById("input-nome-exibicao").value = "";
+          fotoCadastroBase64 = null;
+          document.getElementById("preview-cadastro").style.display = "block";
+          document.getElementById("canvas-cadastro").style.display  = "none";
+          document.getElementById("btnRepetir").style.display        = "none";
+          document.getElementById("btnCadastrar").style.display      = "none";
+          iniciarCamera();
+        } else {
+          statusDiv.innerHTML = `<span style="color:#dc3545;">❌ Erro ao cadastrar. Tente novamente.</span>`;
+        }
+      } catch (erro) {
+        statusDiv.innerHTML = `<span style="color:#dc3545;">❌ Erro de conexão: ${erro.message}</span>`;
+      }
+
+      document.getElementById("btnCadastrar").disabled = false;
+    }
+
+    iniciarCamera();
+  </script>
+</body>
+</html>
